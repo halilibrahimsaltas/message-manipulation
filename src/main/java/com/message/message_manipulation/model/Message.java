@@ -26,13 +26,13 @@ public class Message {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "content", nullable = true)
+    @Column(columnDefinition = "TEXT")
     private String content;
 
-    @Column(name = "sender", nullable = true)
+    @Column(length = 1000)
     private String sender;
 
-    @Column(name = "converted_text", nullable = true)
+    @Column(columnDefinition = "TEXT")
     private String convertedText;
     
     @Column(name = "receivedAt", nullable = false)

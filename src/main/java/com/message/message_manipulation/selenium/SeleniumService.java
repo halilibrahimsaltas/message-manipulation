@@ -33,6 +33,8 @@ public class SeleniumService {
         this.messageService = messageService;
     }
 
+    
+
     @PostConstruct
     public void init() {
         try {
@@ -51,28 +53,64 @@ public class SeleniumService {
      */
     public void fetchAllChats() {
         try {
-            // Sayfanın yüklenmesini bekle
-            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(30));
+            
+            // QR kod taraması için yeterli süre bekle
+            wait.until(ExpectedConditions.presenceOfElementLocated(
+                By.cssSelector("div[aria-label='Sohbet listesi']")));
+            
+            // Yükleme ekranının kaybolmasını bekle
+            wait.until(ExpectedConditions.invisibilityOfElementLocated(
+                By.cssSelector("div[data-testid='popup-overlay']")));
             
             // Sohbet listesini bul
             List<WebElement> chatElements = wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(
                 By.cssSelector("div[aria-label='Sohbet listesi'] div[role='listitem']")));
             
+            log.info("Toplam {} sohbet bulundu", chatElements.size());
+            
             for (WebElement chat : chatElements) {
                 try {
+                    // Yükleme ekranının kaybolmasını bekle
+                    wait.until(ExpectedConditions.invisibilityOfElementLocated(
+                        By.cssSelector("div[data-testid='popup-overlay']")));
+                    
                     // Elementin görünür ve tıklanabilir olmasını bekle
-                    wait.until(ExpectedConditions.elementToBeClickable(chat));
+                    WebElement clickableChat = wait.until(ExpectedConditions.elementToBeClickable(chat));
                     
-                    // JavaScript ile tıklama
-                    ((JavascriptExecutor) driver).executeScript("arguments[0].click();", chat);
+                    // Görünür olması için kaydır
+                    ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block: 'center'});", clickableChat);
+                    Thread.sleep(1000); // Kaydırma animasyonunun tamamlanmasını bekle
                     
-                    Thread.sleep(2000);
+                    // Tüm overlay elementlerinin kaybolmasını bekle
+                    wait.until(ExpectedConditions.invisibilityOfElementLocated(
+                        By.cssSelector(".overlay, .loading, div[data-testid='popup-overlay']")));
+                    
+                    // Normal tıklama dene, olmazsa JavaScript ile tıkla
+                    try {
+                        wait.until(ExpectedConditions.elementToBeClickable(clickableChat));
+                        clickableChat.click();
+                    } catch (Exception e) {
+                        log.warn("Normal tıklama başarısız, JavaScript ile deneniyor");
+                        ((JavascriptExecutor) driver).executeScript("arguments[0].click();", clickableChat);
+                    }
+                    
+                    // Mesajların yüklenmesini bekle
+                    wait.until(ExpectedConditions.presenceOfElementLocated(
+                        By.cssSelector("div[role='application']")));
+                    
+                    // Yükleme ekranının kaybolmasını bekle
+                    wait.until(ExpectedConditions.invisibilityOfElementLocated(
+                        By.cssSelector("div[data-testid='popup-overlay']")));
+                    
+                    Thread.sleep(1500);
                     
                     // Mesajları çek
                     fetchMessagesFromChat(getSenderFromMessage(chat));
                     
                 } catch (Exception e) {
                     log.error("Sohbet işleme hatası: ", e);
+                    continue;
                 }
             }
         } catch (Exception e) {
@@ -86,27 +124,119 @@ public class SeleniumService {
      */
     public void fetchMessagesFromChat(String chatName) {
         try {
-            List<WebElement> messages = driver.findElements(By.cssSelector("div._22Msk"));
+            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+            
+            // Mesaj konteynerinin yüklenmesini bekle
+            wait.until(ExpectedConditions.presenceOfElementLocated(
+                By.cssSelector("div[role='application']")));
+            
+            // Tüm mesaj elementlerini bul (metin, resim, sticker vb.)
+            List<WebElement> messages = wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(
+                By.cssSelector("div[role='row']")));
+            
+            log.info("{} sohbetinde {} mesaj bulundu", chatName, messages.size());
             
             for (WebElement msg : messages) {
                 try {
-                    String text = msg.getText();
-                    // Göndereni ve mesaj içeriğini ayır
+                    String messageType = determineMessageType(msg);
+                    String messageContent = "";
                     String sender = getSenderFromMessage(msg);
-                    messageService.saveMessage(text, sender != null ? sender : chatName);
+                    
+                    switch (messageType) {
+                        case "text":
+                            // Metin mesajı
+                            WebElement textElement = msg.findElement(By.cssSelector("span.selectable-text"));
+                            messageContent = textElement.getText();
+                            break;
+                            
+                        case "image":
+                            // Resim mesajı
+                            messageContent = "[Resim]";
+                            try {
+                                WebElement imageCaption = msg.findElement(By.cssSelector("span.selectable-text"));
+                                String caption = imageCaption.getText();
+                                if (!caption.isEmpty()) {
+                                    messageContent += " - Açıklama: " + caption;
+                                }
+                            } catch (Exception e) {
+                                // Resim açıklaması yok, sadece [Resim] olarak kaydet
+                            }
+                            break;
+                            
+                        case "sticker":
+                            messageContent = "[Sticker]";
+                            break;
+                            
+                        case "document":
+                            messageContent = "[Döküman]";
+                            try {
+                                WebElement docName = msg.findElement(By.cssSelector("span[title]"));
+                                messageContent += " - " + docName.getAttribute("title");
+                            } catch (Exception e) {
+                                // Döküman adı alınamadı
+                            }
+                            break;
+                            
+                        case "voice":
+                            messageContent = "[Sesli Mesaj]";
+                            break;
+                            
+                        default:
+                            messageContent = "[Diğer Medya]";
+                    }
+                    
+                    if (!messageContent.isEmpty()) {
+                        messageService.saveMessage(messageContent, sender != null ? sender : chatName);
+                    }
+                    
                 } catch (Exception e) {
                     log.error("Mesaj işleme hatası: ", e);
                 }
             }
         } catch (Exception e) {
-            log.error("fetchMessagesFromChat hata: ", e);
+            log.error("fetchMessagesFromChat hatası: ", e);
+        }
+    }
+
+    private String determineMessageType(WebElement messageElement) {
+        try {
+            // Metin mesajı kontrolü
+            if (messageElement.findElements(By.cssSelector("span.selectable-text")).size() > 0) {
+                return "text";
+            }
+            
+            // Resim kontrolü
+            if (messageElement.findElements(By.cssSelector("img[data-testid='image-thumb']")).size() > 0) {
+                return "image";
+            }
+            
+            // Sticker kontrolü
+            if (messageElement.findElements(By.cssSelector("img[data-testid='sticker']")).size() > 0) {
+                return "sticker";
+            }
+            
+            // Döküman kontrolü
+            if (messageElement.findElements(By.cssSelector("div[data-testid='document-thumb']")).size() > 0) {
+                return "document";
+            }
+            
+            // Sesli mesaj kontrolü
+            if (messageElement.findElements(By.cssSelector("div[data-testid='audio-player']")).size() > 0) {
+                return "voice";
+            }
+            
+            return "unknown";
+        } catch (Exception e) {
+            log.error("Mesaj tipi belirleme hatası: ", e);
+            return "unknown";
         }
     }
 
     private String getSenderFromMessage(WebElement messageElement) {
         try {
-            // WhatsApp Web'de gönderen kişinin adının bulunduğu elementi bul
-            WebElement senderElement = messageElement.findElement(By.cssSelector("span.selectable-text"));
+            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(5));
+            WebElement senderElement = wait.until(ExpectedConditions.presenceOfElementLocated(
+                By.cssSelector("span.selectable-text")));
             return senderElement.getText();
         } catch (Exception e) {
             return null;
