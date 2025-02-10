@@ -2,21 +2,28 @@ package com.message.message_manipulation.service;
 
 import org.springframework.stereotype.Service;
 import com.message.message_manipulation.repository.MessageRepository;
-import lombok.RequiredArgsConstructor;
 import com.message.message_manipulation.model.Message;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.time.LocalDateTime;
+
+
 import java.time.ZoneId;
 
 
 @Service
-@RequiredArgsConstructor
+
 public class MessageService {
 
 
     private final MessageRepository messageRepository;
+    private final ForwardService forwardService;
+
+    public MessageService(MessageRepository messageRepository, ForwardService forwardService) {
+        this.messageRepository = messageRepository;
+        this.forwardService = forwardService;
+    }
 
     public List<Message> getAllMessages() {
         return messageRepository.findAll();
@@ -28,15 +35,19 @@ public class MessageService {
     }
 
 
-    public Message saveMessage(String content, String sender) {
+    public void  saveMessage(String content, String sender) {
 
         Message message = new Message();
         message.setContent(content);
         message.setConvertedText(convertLinks(content));
         message.setSender(sender);
         message.setReceivedAt(LocalDateTime.now(ZoneId.of("Europe/Istanbul")));
+        
+        messageRepository.save(message);
 
-        return messageRepository.save(message);
+        forwardService.sendToTelegram(message.getConvertedText());
+
+
     }
 
     public Message getMessageById(Long id) {

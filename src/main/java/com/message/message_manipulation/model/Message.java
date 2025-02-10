@@ -10,16 +10,13 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import jakarta.persistence.Column;
 import java.time.LocalDateTime;
-import jakarta.persistence.UniqueConstraint;
+
 
 @Entity
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "messages", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"content", "sender"})
-})
-
+@Table(name = "messages")
 public class Message {
 
     @Id
