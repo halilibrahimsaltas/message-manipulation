@@ -17,7 +17,7 @@ import jakarta.persistence.UniqueConstraint;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "messages", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"content", "sender", "receivedAt"})
+    @UniqueConstraint(columnNames = {"content", "sender"})
 })
 
 public class Message {

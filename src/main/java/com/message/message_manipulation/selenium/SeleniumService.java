@@ -42,24 +42,24 @@ public class SeleniumService {
             driver = new ChromeDriver();
             driver.get("https://web.whatsapp.com");
             isInitialized = true;
-            log.info("Selenium başarıyla başlatıldı");
+            log.info("Selenium basariyla baslatildi");
         } catch (Exception e) {
-            log.error("Selenium başlatma hatası: ", e);
+            log.error("Selenium baslatma hatasi: ", e);
         }
     }
 
     /**
-     * Sol paneldeki tüm sohbetleri bulur, her birini tıklar ve mesajları çeker.
+     * Sol paneldeki tum sohbetleri bulur, her birini tiklar ve mesajlari ceker.
      */
     public void fetchAllChats() {
         try {
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(30));
             
-            // QR kod taraması için yeterli süre bekle
+            // QR kod taramasi icin yeterli sure bekle
             wait.until(ExpectedConditions.presenceOfElementLocated(
                 By.cssSelector("div[aria-label='Sohbet listesi']")));
             
-            // Yükleme ekranının kaybolmasını bekle
+            // Yukleme ekraninin kaybolmasini bekle
             wait.until(ExpectedConditions.invisibilityOfElementLocated(
                 By.cssSelector("div[data-testid='popup-overlay']")));
             
@@ -71,87 +71,108 @@ public class SeleniumService {
             
             for (WebElement chat : chatElements) {
                 try {
-                    // Yükleme ekranının kaybolmasını bekle
+                    // Yukleme ekraninin kaybolmasini bekle
                     wait.until(ExpectedConditions.invisibilityOfElementLocated(
                         By.cssSelector("div[data-testid='popup-overlay']")));
                     
-                    // Elementin görünür ve tıklanabilir olmasını bekle
+                    // Elementin gorunur ve tiklanabilir olmasini bekle
                     WebElement clickableChat = wait.until(ExpectedConditions.elementToBeClickable(chat));
                     
-                    // Görünür olması için kaydır
+                    // Gorunur olmasi icin kaydir
                     ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block: 'center'});", clickableChat);
-                    Thread.sleep(1000); // Kaydırma animasyonunun tamamlanmasını bekle
+                    Thread.sleep(1000); // Kaydirma animasyonunun tamamlanmasini bekle
                     
-                    // Tüm overlay elementlerinin kaybolmasını bekle
+                    // Tum overlay elementlerinin kaybolmasini bekle
                     wait.until(ExpectedConditions.invisibilityOfElementLocated(
                         By.cssSelector(".overlay, .loading, div[data-testid='popup-overlay']")));
                     
-                    // Normal tıklama dene, olmazsa JavaScript ile tıkla
+                    // Normal tiklama dene, olmazsa JavaScript ile tikla
                     try {
                         wait.until(ExpectedConditions.elementToBeClickable(clickableChat));
                         clickableChat.click();
                     } catch (Exception e) {
-                        log.warn("Normal tıklama başarısız, JavaScript ile deneniyor");
+                        log.warn("Normal tiklama basarisiz, JavaScript ile deneniyor");
                         ((JavascriptExecutor) driver).executeScript("arguments[0].click();", clickableChat);
                     }
                     
-                    // Mesajların yüklenmesini bekle
+                    // Mesajlarin yuklenmesini bekle
                     wait.until(ExpectedConditions.presenceOfElementLocated(
                         By.cssSelector("div[role='application']")));
                     
-                    // Yükleme ekranının kaybolmasını bekle
+                    // Yukleme ekraninin kaybolmasini bekle
                     wait.until(ExpectedConditions.invisibilityOfElementLocated(
                         By.cssSelector("div[data-testid='popup-overlay']")));
                     
                     Thread.sleep(1500);
                     
-                    // Sohbet adını al
+                    // Sohbet adini al
                     String chatName = getChatName(chat);
-                    log.info("İşlenen sohbet: {}", chatName);
+                    log.info("Islenen sohbet: {}", chatName);
                     
-                    // Mesajları çek - artık doğru chatName ile
+                    // Mesajlari cek - artik dogru chatName ile
                     fetchMessagesFromChat(chatName);
                     
                 } catch (Exception e) {
-                    log.error("Sohbet işleme hatası: ", e);
+                    log.error("Sohbet isleme hatasi: ", e);
                     continue;
                 }
             }
         } catch (Exception e) {
-            log.error("fetchAllChats hatası: ", e);
+            log.error("fetchAllChats hatasi: ", e);
         }
     }
 
     /**
-     * Sohbet elementinden sohbet adını alır
+     * Sohbet elementinden sohbet adini alir
      */
     private String getChatName(WebElement chatElement) {
         try {
             WebElement titleElement = chatElement.findElement(By.cssSelector("span[title]"));
             String chatName = titleElement.getAttribute("title");
+            chatName = normalizeString(chatName);
             return chatName != null && !chatName.isEmpty() ? chatName : "Bilinmeyen Sohbet";
         } catch (Exception e) {
-            log.error("Sohbet adı alma hatası: ", e);
+            log.error("Sohbet adi alma hatasi: ", e);
             return "Bilinmeyen Sohbet";
         }
     }
 
     /**
-     * Verilen bir sohbet adına tıkladıktan sonra mesajları DOM üzerinden alır.
+     * String icindeki Turkce karakterleri duzeltir
+     */
+    private String normalizeString(String input) {
+        if (input == null) return null;
+        
+        return input.replace('ı', 'i')
+                   .replace('İ', 'I')
+                   .replace('ğ', 'g')
+                   .replace('Ğ', 'G')
+                   .replace('ü', 'u')
+                   .replace('Ü', 'U')
+                   .replace('ş', 's')
+                   .replace('Ş', 'S')
+                   .replace('ö', 'o')
+                   .replace('Ö', 'O')
+                   .replace('ç', 'c')
+                   .replace('Ç', 'C');
+    }
+
+    /**
+     * Verilen bir sohbet adina tikladiktan sonra mesajlari DOM uzerinden alir.
      */
     public void fetchMessagesFromChat(String chatName) {
         try {
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
             
-            // Mesaj konteynerinin yüklenmesini bekle
+            // Mesaj konteynerinin yuklenmesini bekle
             wait.until(ExpectedConditions.presenceOfElementLocated(
                 By.cssSelector("div[role='application']")));
             
-            // Tüm mesaj elementlerini bul (metin, resim, sticker vb.)
+            // Tum mesaj elementlerini bul (metin, resim, sticker vb.)
             List<WebElement> messages = wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(
                 By.cssSelector("div[role='row']")));
             
-            // Sadece son mesajı al
+            // Sadece son mesaji al
             if (!messages.isEmpty()) {
                 WebElement lastMessage = messages.get(messages.size() - 1);
                 try {
@@ -161,22 +182,20 @@ public class SeleniumService {
                     
                     switch (messageType) {
                         case "text":
-                            // Metin mesajı
                             WebElement textElement = lastMessage.findElement(By.cssSelector("span.selectable-text"));
-                            messageContent = textElement.getText();
+                            messageContent = normalizeString(textElement.getText());
                             break;
                             
                         case "image":
-                            // Resim mesajı
                             messageContent = "[Resim]";
                             try {
                                 WebElement imageCaption = lastMessage.findElement(By.cssSelector("span.selectable-text"));
                                 String caption = imageCaption.getText();
                                 if (!caption.isEmpty()) {
-                                    messageContent += " - Açıklama: " + caption;
+                                    messageContent += " - Aciklama: " + caption;
                                 }
                             } catch (Exception e) {
-                                // Resim açıklaması yok, sadece [Resim] olarak kaydet
+                                // Resim aciklamasi yok, sadece [Resim] olarak kaydet
                             }
                             break;
                             
@@ -185,12 +204,12 @@ public class SeleniumService {
                             break;
                             
                         case "document":
-                            messageContent = "[Döküman]";
+                            messageContent = "[Dokuman]";
                             try {
                                 WebElement docName = lastMessage.findElement(By.cssSelector("span[title]"));
                                 messageContent += " - " + docName.getAttribute("title");
                             } catch (Exception e) {
-                                // Döküman adı alınamadı
+                                // Dokuman adi alinamadi
                             }
                             break;
                             
@@ -199,69 +218,70 @@ public class SeleniumService {
                             break;
                             
                         default:
-                            messageContent = "[Diğer Medya]";
+                            messageContent = "[Diger Medya]";
                     }
                     
                     if (!messageContent.isEmpty()) {
-                        messageService.saveMessage(messageContent, sender != null ? sender : chatName);
+                        sender = sender != null ? normalizeString(sender) : normalizeString(chatName);
+                        messageService.saveMessage(messageContent, sender);
                     }
                     
                 } catch (Exception e) {
-                    log.error("Son mesaj işleme hatası: ", e);
+                    log.error("Son mesaj isleme hatasi: ", e);
                 }
             }
             
-            log.info("{} sohbetinden son mesaj alındı", chatName);
+            log.info("{} sohbetinden son mesaj alindi", normalizeString(chatName));
             
         } catch (Exception e) {
-            log.error("fetchMessagesFromChat hatası: ", e);
+            log.error("fetchMessagesFromChat hatasi: ", e);
         }
     }
 
     private String determineMessageType(WebElement messageElement) {
         try {
-            // Metin mesajı kontrolü
+            // Metin mesaji kontrolu
             if (messageElement.findElements(By.cssSelector("span.selectable-text")).size() > 0) {
                 return "text";
             }
             
-            // Resim kontrolü
+            // Resim kontrolu
             if (messageElement.findElements(By.cssSelector("img[data-testid='image-thumb']")).size() > 0) {
                 return "image";
             }
             
-            // Sticker kontrolü
+            // Sticker kontrolu
             if (messageElement.findElements(By.cssSelector("img[data-testid='sticker']")).size() > 0) {
                 return "sticker";
             }
             
-            // Döküman kontrolü
+            // Dokuman kontrolu
             if (messageElement.findElements(By.cssSelector("div[data-testid='document-thumb']")).size() > 0) {
                 return "document";
             }
             
-            // Sesli mesaj kontrolü
+            // Sesli mesaj kontrolu
             if (messageElement.findElements(By.cssSelector("div[data-testid='audio-player']")).size() > 0) {
                 return "voice";
             }
             
             return "unknown";
         } catch (Exception e) {
-            log.error("Mesaj tipi belirleme hatası: ", e);
+            log.error("Mesaj tipi belirleme hatasi: ", e);
             return "unknown";
         }
     }
 
     /**
-     * Mesajdan göndereni alır
+     * Mesajdan gondereni alir
      */
     private String getSenderFromMessage(WebElement messageElement) {
         try {
-            // Mesajın içindeki gönderen adını bul
+            // Mesajin icindeki gonderen adini bul
             WebElement senderElement = messageElement.findElement(By.cssSelector("div[data-pre-plain-text]"));
             String senderInfo = senderElement.getAttribute("data-pre-plain-text");
             
-            // "[HH:mm] Gönderen:" formatından gönderen adını ayıkla
+            // "[HH:mm] Gonderen:" formatindan gonderen adini ayikla
             if (senderInfo != null && senderInfo.contains(":")) {
                 String[] parts = senderInfo.split(":");
                 if (parts.length > 1) {
@@ -275,26 +295,26 @@ public class SeleniumService {
     }
 
     /**
-     * Yeni mesajları tespit etmek için periyodik döngü: 10 saniyede bir tüm sohbetleri kontrol et.
+     * Yeni mesajlari tespit etmek icin periyodik dongu: 10 saniyede bir tum sohbetleri kontrol et.
      */
     @Scheduled(fixedDelay = 10000)
     public void startListening() {
         try {
             if (!isInitialized || driver == null) {
-                log.warn("Driver başlatılmamış, yeniden başlatılıyor...");
+                log.warn("Driver baslatilmamis, yeniden baslatiliyor...");
                 init();
                 return;
             }
             fetchAllChats();
         } catch (Exception e) {
-            log.error("Dinleme hatası: ", e);
-            // Oturum hatası durumunda yeniden başlat
+            log.error("Dinleme hatasi: ", e);
+            // Oturum hatasi durumunda yeniden baslat
             isInitialized = false;
             if (driver != null) {
                 try {
                     driver.quit();
                 } catch (Exception quitEx) {
-                    log.error("Driver kapatma hatası: ", quitEx);
+                    log.error("Driver kapatma hatasi: ", quitEx);
                 }
                 driver = null;
             }
@@ -302,7 +322,7 @@ public class SeleniumService {
     }
 
     /**
-     * Uygulama sonlandığında driver'ı kapatalım.
+     * Uygulama sonlandiginda driver'i kapatalim.
      */
     public void closeDriver() {
         if (driver != null) {
