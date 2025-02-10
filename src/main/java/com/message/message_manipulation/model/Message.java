@@ -9,7 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import jakarta.persistence.Column;
-
+import java.time.LocalDateTime;
 
 @Entity
 @Data
@@ -28,4 +28,6 @@ public class Message {
     @Column(name = "converted_text", nullable = true)
     private String convertedText;
     
+    @Column(name = "receivedAt", nullable = true)
+    private LocalDateTime receivedAt;
 }
