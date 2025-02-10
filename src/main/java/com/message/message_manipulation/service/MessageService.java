@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +21,7 @@ public class MessageService {
     public List<Message> getAllMessages() {
         return messageRepository.findAll();
     }
+    
 
     public List<Message> getMessagesBySender(String sender) {
         return messageRepository.findBySender(sender);
@@ -31,7 +34,7 @@ public class MessageService {
         message.setContent(content);
         message.setConvertedText(convertLinks(content));
         message.setSender(sender);
-        message.setReceivedAt(LocalDateTime.now());
+        message.setReceivedAt(LocalDateTime.now(ZoneId.of("Europe/Istanbul")));
 
         return messageRepository.save(message);
     }
@@ -42,7 +45,11 @@ public class MessageService {
     }
 
 
+
     private String convertLinks(String text) {
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
         // URL pattern'i
         String urlPattern = "https?://[\\w-]+(\\.[\\w-]+)+([\\w.,@?^=%&:/~+#-]*[\\w@?^=%&/~+#-])?";
         Pattern pattern = Pattern.compile(urlPattern);
@@ -58,9 +65,30 @@ public class MessageService {
         
         return result.toString();
     }
+
+
+    public Message fetchMessagesFromChat(String sender) {
+        List<Message> existingMessages = messageRepository.findBySender(sender);
+        Message lastMessage = existingMessages.isEmpty() ? null : existingMessages.get(existingMessages.size() - 1);
+        
+        for (Message msg : existingMessages) {
+            String text = msg.getContent();
+            
+            // Yeni mesaj kontrolü
+            if (lastMessage == null || !text.equals(lastMessage.getContent())) {
+                saveMessage(text, sender);
+            }
+        }
+        return lastMessage;
+    }
+
     
 
 
 
+
+
+
 }
+
 

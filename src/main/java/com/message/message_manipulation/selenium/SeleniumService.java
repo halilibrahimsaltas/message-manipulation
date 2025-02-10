@@ -2,10 +2,14 @@ package com.message.message_manipulation.selenium;
 
 
 import java.util.List;
+import java.time.Duration;
 
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
+import org.openqa.selenium.JavascriptExecutor;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -47,33 +51,35 @@ public class SeleniumService {
      */
     public void fetchAllChats() {
         try {
-            // 1. Sohbet listesi elemanlarını bulma
-            // Not: Bu CSS/XPath seçiciler WhatsApp Web sürümüne göre değişebilir.
-            // Örneğin, sol paneldeki sohbet satırları:
-            List<WebElement> chatElements = driver.findElements(By.cssSelector("div._2aBzC"));
-
-            // 2. Her bir sohbete tıklayıp mesajları çek
+            // Sayfanın yüklenmesini bekle
+            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+            
+            // Sohbet listesini bul
+            List<WebElement> chatElements = wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(
+                By.cssSelector("div[aria-label='Sohbet listesi'] div[role='listitem']")));
+            
             for (WebElement chat : chatElements) {
-                // Sohbet adını al (Örn. span etiketinde gözüküyor)
-                WebElement titleElement = chat.findElement(By.cssSelector("span._ccCW"));
-                String chatName = titleElement.getText();
-                log.info("Sohbet bulundu: " + chatName);
-
-                // Sohbete tıkla
-                chat.click();
-                Thread.sleep(2000); // Sohbetin yüklenmesi için kısa bekleme
-
-                // Mesajları çek
-                fetchMessagesFromChat(chatName);
-                
-                // Tekrar sol panele geri dönmek gerekebilir 
-                // (WhatsApp Web bazen dinamik yapıda, elementler yenileniyor)
-                // Gerekirse "geri" veya tekrar sol paneli güncel bulma mantığı ekleyin.
+                try {
+                    // Elementin görünür ve tıklanabilir olmasını bekle
+                    wait.until(ExpectedConditions.elementToBeClickable(chat));
+                    
+                    // JavaScript ile tıklama
+                    ((JavascriptExecutor) driver).executeScript("arguments[0].click();", chat);
+                    
+                    Thread.sleep(2000);
+                    
+                    // Mesajları çek
+                    fetchMessagesFromChat(getSenderFromMessage(chat));
+                    
+                } catch (Exception e) {
+                    log.error("Sohbet işleme hatası: ", e);
+                }
             }
         } catch (Exception e) {
-            log.error("Tüm sohbetleri fetch ederken hata oluştu: ", e);
+            log.error("fetchAllChats hatası: ", e);
         }
     }
+
 
     /**
      * Verilen bir sohbet adına tıkladıktan sonra mesajları DOM üzerinden alır.
@@ -86,7 +92,7 @@ public class SeleniumService {
                 try {
                     String text = msg.getText();
                     // Göndereni ve mesaj içeriğini ayır
-                    String sender = getSenderFromMessage(msg);  // Bu metodu eklememiz gerekiyor
+                    String sender = getSenderFromMessage(msg);
                     messageService.saveMessage(text, sender != null ? sender : chatName);
                 } catch (Exception e) {
                     log.error("Mesaj işleme hatası: ", e);
