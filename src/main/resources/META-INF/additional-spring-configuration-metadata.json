@@ -3,12 +3,12 @@
     {
       "name": "telegram.bot.token",
       "type": "java.lang.String",
-      "description": "A description for 'telegram.bot.token'"
+      "description": "Telegram Bot API token'ı - Bot Father üzerinden alınan bot kimlik anahtarı. Örnek: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
     },
     {
       "name": "telegram.bot.chatId",
       "type": "java.lang.String",
-      "description": "A description for 'telegram.bot.chatId'"
+      "description": "Telegram hedef sohbet/kanal ID'si - Mesajların iletileceği Telegram sohbeti veya kanalının benzersiz kimliği. Örnek: -1001234567890"
     }
   ]
 }
