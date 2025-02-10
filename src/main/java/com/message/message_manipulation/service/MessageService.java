@@ -7,6 +7,7 @@ import com.message.message_manipulation.model.Message;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -19,12 +20,19 @@ public class MessageService {
         return messageRepository.findAll();
     }
 
+    public List<Message> getMessagesBySender(String sender) {
+        return messageRepository.findBySender(sender);
+    }
 
-    public Message saveMessage(String content) {
+
+    public Message saveMessage(String content, String sender) {
+
         Message message = new Message();
         message.setContent(content);
         message.setConvertedText(convertLinks(content));
-        
+        message.setSender(sender);
+        message.setReceivedAt(LocalDateTime.now());
+
         return messageRepository.save(message);
     }
 
@@ -51,7 +59,7 @@ public class MessageService {
         return result.toString();
     }
     
-    
+
 
 
 }

@@ -80,19 +80,31 @@ public class SeleniumService {
      */
     public void fetchMessagesFromChat(String chatName) {
         try {
-            // Örneğin mesaj baloncukları için bir CSS selector:
             List<WebElement> messages = driver.findElements(By.cssSelector("div._22Msk"));
-
+            
             for (WebElement msg : messages) {
-                String text = msg.getText();
-                // messageService.saveMessage'da (sender, text) veya 
-                // (chatName, text) gibi parametrelerle kaydedebilirsiniz.
-                messageService.saveMessage(text);
+                try {
+                    String text = msg.getText();
+                    // Göndereni ve mesaj içeriğini ayır
+                    String sender = getSenderFromMessage(msg);  // Bu metodu eklememiz gerekiyor
+                    messageService.saveMessage(text, sender != null ? sender : chatName);
+                } catch (Exception e) {
+                    log.error("Mesaj işleme hatası: ", e);
+                }
             }
         } catch (Exception e) {
             log.error("fetchMessagesFromChat hata: ", e);
         }
+    }
 
+    private String getSenderFromMessage(WebElement messageElement) {
+        try {
+            // WhatsApp Web'de gönderen kişinin adının bulunduğu elementi bul
+            WebElement senderElement = messageElement.findElement(By.cssSelector("span.selectable-text"));
+            return senderElement.getText();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /**

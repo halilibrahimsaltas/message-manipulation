@@ -10,12 +10,16 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import jakarta.persistence.Column;
 import java.time.LocalDateTime;
+import jakarta.persistence.UniqueConstraint;
 
 @Entity
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "messages")
+@Table(name = "messages", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"content", "sender", "receivedAt"})
+})
+
 public class Message {
 
     @Id
@@ -25,9 +29,14 @@ public class Message {
     @Column(name = "content", nullable = true)
     private String content;
 
+    @Column(name = "sender", nullable = true)
+    private String sender;
+
     @Column(name = "converted_text", nullable = true)
     private String convertedText;
     
-    @Column(name = "receivedAt", nullable = true)
+    @Column(name = "receivedAt", nullable = false)
     private LocalDateTime receivedAt;
+
+
 }
