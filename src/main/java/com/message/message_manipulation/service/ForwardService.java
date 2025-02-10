@@ -1,11 +1,14 @@
 package com.message.message_manipulation.service;
 
-import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.util.Map;
-import java.util.HashMap;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
 
 
 /**
@@ -19,12 +22,14 @@ public class ForwardService {
     private static final String TELEGRAM_API_URL = "https://api.telegram.org/bot"; 
     private final RestTemplate restTemplate;
 
-    // Test için sabit değerler
-    private final String botToken = "7811675034:AAGgOp6VnrGgEbcqClbhtNu9LqV3WorNIfc";
-    private final String chatId = "-1002405663941";
+    @Value("${telegram.bot.token}")
+    private String botToken;
 
-    public ForwardService() {
-        this.restTemplate = new RestTemplate();
+    @Value("${telegram.bot.chatId}")
+    private String chatId;
+
+    public ForwardService(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
     }
 
     /**
@@ -50,8 +55,10 @@ public class ForwardService {
             restTemplate.postForObject(url, requestBody, String.class);
             log.info("Telegram mesaji gonderildi: {}", messageText);
             
-        } catch (Exception e) {
-            log.error("Telegram mesaj gonderme hatasi: ", e);
+        } catch (RestClientException e) {
+            log.error("Telegram API hatasi: ", e);
+        } catch (IllegalArgumentException e) {
+            log.error("Gecersiz parametre hatasi: ", e);
         }
     }
 
