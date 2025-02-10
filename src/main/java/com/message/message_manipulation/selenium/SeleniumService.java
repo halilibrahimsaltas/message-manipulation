@@ -105,8 +105,12 @@ public class SeleniumService {
                     
                     Thread.sleep(1500);
                     
-                    // Mesajları çek
-                    fetchMessagesFromChat(getSenderFromMessage(chat));
+                    // Sohbet adını al
+                    String chatName = getChatName(chat);
+                    log.info("İşlenen sohbet: {}", chatName);
+                    
+                    // Mesajları çek - artık doğru chatName ile
+                    fetchMessagesFromChat(chatName);
                     
                 } catch (Exception e) {
                     log.error("Sohbet işleme hatası: ", e);
@@ -118,6 +122,19 @@ public class SeleniumService {
         }
     }
 
+    /**
+     * Sohbet elementinden sohbet adını alır
+     */
+    private String getChatName(WebElement chatElement) {
+        try {
+            WebElement titleElement = chatElement.findElement(By.cssSelector("span[title]"));
+            String chatName = titleElement.getAttribute("title");
+            return chatName != null && !chatName.isEmpty() ? chatName : "Bilinmeyen Sohbet";
+        } catch (Exception e) {
+            log.error("Sohbet adı alma hatası: ", e);
+            return "Bilinmeyen Sohbet";
+        }
+    }
 
     /**
      * Verilen bir sohbet adına tıkladıktan sonra mesajları DOM üzerinden alır.
@@ -134,18 +151,18 @@ public class SeleniumService {
             List<WebElement> messages = wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(
                 By.cssSelector("div[role='row']")));
             
-            log.info("{} sohbetinde {} mesaj bulundu", chatName, messages.size());
-            
-            for (WebElement msg : messages) {
+            // Sadece son mesajı al
+            if (!messages.isEmpty()) {
+                WebElement lastMessage = messages.get(messages.size() - 1);
                 try {
-                    String messageType = determineMessageType(msg);
+                    String messageType = determineMessageType(lastMessage);
                     String messageContent = "";
-                    String sender = getSenderFromMessage(msg);
+                    String sender = getSenderFromMessage(lastMessage);
                     
                     switch (messageType) {
                         case "text":
                             // Metin mesajı
-                            WebElement textElement = msg.findElement(By.cssSelector("span.selectable-text"));
+                            WebElement textElement = lastMessage.findElement(By.cssSelector("span.selectable-text"));
                             messageContent = textElement.getText();
                             break;
                             
@@ -153,7 +170,7 @@ public class SeleniumService {
                             // Resim mesajı
                             messageContent = "[Resim]";
                             try {
-                                WebElement imageCaption = msg.findElement(By.cssSelector("span.selectable-text"));
+                                WebElement imageCaption = lastMessage.findElement(By.cssSelector("span.selectable-text"));
                                 String caption = imageCaption.getText();
                                 if (!caption.isEmpty()) {
                                     messageContent += " - Açıklama: " + caption;
@@ -170,7 +187,7 @@ public class SeleniumService {
                         case "document":
                             messageContent = "[Döküman]";
                             try {
-                                WebElement docName = msg.findElement(By.cssSelector("span[title]"));
+                                WebElement docName = lastMessage.findElement(By.cssSelector("span[title]"));
                                 messageContent += " - " + docName.getAttribute("title");
                             } catch (Exception e) {
                                 // Döküman adı alınamadı
@@ -190,9 +207,12 @@ public class SeleniumService {
                     }
                     
                 } catch (Exception e) {
-                    log.error("Mesaj işleme hatası: ", e);
+                    log.error("Son mesaj işleme hatası: ", e);
                 }
             }
+            
+            log.info("{} sohbetinden son mesaj alındı", chatName);
+            
         } catch (Exception e) {
             log.error("fetchMessagesFromChat hatası: ", e);
         }
@@ -232,12 +252,23 @@ public class SeleniumService {
         }
     }
 
+    /**
+     * Mesajdan göndereni alır
+     */
     private String getSenderFromMessage(WebElement messageElement) {
         try {
-            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(5));
-            WebElement senderElement = wait.until(ExpectedConditions.presenceOfElementLocated(
-                By.cssSelector("span.selectable-text")));
-            return senderElement.getText();
+            // Mesajın içindeki gönderen adını bul
+            WebElement senderElement = messageElement.findElement(By.cssSelector("div[data-pre-plain-text]"));
+            String senderInfo = senderElement.getAttribute("data-pre-plain-text");
+            
+            // "[HH:mm] Gönderen:" formatından gönderen adını ayıkla
+            if (senderInfo != null && senderInfo.contains(":")) {
+                String[] parts = senderInfo.split(":");
+                if (parts.length > 1) {
+                    return parts[1].trim().replace("]", "").trim();
+                }
+            }
+            return null;
         } catch (Exception e) {
             return null;
         }
