@@ -1,5 +1,7 @@
 package com.message.message_manipulation.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import com.message.message_manipulation.repository.MessageRepository;
 import com.message.message_manipulation.model.Message;
@@ -7,9 +9,11 @@ import java.util.List;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
+
 @Service
 public class MessageService {
 
+    private static final Logger log = LoggerFactory.getLogger(MessageService.class);
     private final MessageRepository messageRepository;
     private final ForwardService forwardService;
     private final LinkConversionService linkConversionService;
@@ -29,16 +33,27 @@ public class MessageService {
     }
 
     public void saveMessage(String content, String sender) {
-        Message message = new Message();
-        message.setContent(content);
-        message.setConvertedText(linkConversionService.convertLinks(content));
-        message.setSender(sender);
-        message.setReceivedAt(LocalDateTime.now(ZoneId.of("Europe/Istanbul")));
-        
-        messageRepository.save(message);
-        
-        // Sadece dönüştürülmüş mesaj içeriğini ilet
-        forwardService.sendToAllChats(message.getConvertedText());
+        try {
+            // Sadece mesaj içeriğine bakarak son 1 dakika içinde aynı mesaj var mı kontrol et
+            LocalDateTime oneMinuteAgo = LocalDateTime.now(ZoneId.of("Europe/Istanbul")).minusMinutes(1);
+            boolean exists = messageRepository.existsByContentAndReceivedAtAfter(content, oneMinuteAgo);
+
+            if (!exists) {
+                Message message = new Message();
+                message.setContent(content);
+                message.setConvertedText(linkConversionService.convertLinks(content));
+                message.setSender(sender);
+                message.setReceivedAt(LocalDateTime.now(ZoneId.of("Europe/Istanbul")));
+                
+                messageRepository.save(message);
+                forwardService.sendToAllChats(message.getConvertedText());
+                log.debug("Yeni mesaj kaydedildi: {}", content);
+            } else {
+                log.debug("Tekrar eden mesaj atlandı: {}", content);
+            }
+        } catch (Exception e) {
+            log.warn("Mesaj kaydetme sırasında hata: {}", e.getMessage());
+        }
     }
 
     public Message getMessageById(Long id) {
@@ -47,17 +62,28 @@ public class MessageService {
     }
 
     public Message fetchMessagesFromChat(String sender) {
-        List<Message> existingMessages = messageRepository.findBySender(sender);
-        Message lastMessage = existingMessages.isEmpty() ? null : existingMessages.get(existingMessages.size() - 1);
-        
-        for (Message msg : existingMessages) {
-            String text = msg.getContent();
+        try {
+            // Tüm mesajlardan son 3 mesajın içeriğini al
+            List<String> existingContents = messageRepository.findDistinctContentByOrderByReceivedAtDesc();
             
-            if (lastMessage == null || !text.equals(lastMessage.getContent())) {
-                saveMessage(text, sender);
+            List<Message> existingMessages = messageRepository.findBySender(sender);
+            
+            // Son 3 mesajı kontrol et ve içeriği daha önce kaydedilmemişse kaydet
+            for (int i = Math.max(0, existingMessages.size() - 3); i < existingMessages.size(); i++) {
+                Message msg = existingMessages.get(i);
+                if (!existingContents.contains(msg.getContent())) {
+                    saveMessage(msg.getContent(), sender);
+                    log.debug("Yeni mesaj içeriği bulundu ve kaydedildi: {}", msg.getContent());
+                } else {
+                    log.debug("Mesaj içeriği zaten mevcut, atlanıyor: {}", msg.getContent());
+                }
             }
+
+            return existingMessages.isEmpty() ? null : existingMessages.get(existingMessages.size() - 1);
+        } catch (Exception e) {
+            log.warn("Mesaj çekme sırasında hata: {}", e.getMessage());
+            return null;
         }
-        return lastMessage;
     }
 }
 
