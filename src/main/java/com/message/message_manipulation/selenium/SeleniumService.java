@@ -65,7 +65,7 @@ public class SeleniumService {
             
             // Sohbet listesini bul
             List<WebElement> chatElements = wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(
-                By.cssSelector("div[aria-label='Sohbet listesi'] div[role='listitem']")));
+                By.cssSelector("div[aria-label='Kanal Listesi'] div[role='listitem']")));
             
             log.info("Toplam {} sohbet bulundu", chatElements.size());
             
