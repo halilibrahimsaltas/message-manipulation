@@ -1,25 +1,24 @@
 package com.message.message_manipulation.selenium;
 
-
 import java.util.List;
 import java.time.Duration;
 
 import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
-import org.openqa.selenium.JavascriptExecutor;
-
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Service;
-import jakarta.annotation.PostConstruct;
-import org.openqa.selenium.chrome.ChromeDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.message.message_manipulation.service.MessageService;
-import io.github.bonigarcia.wdm.WebDriverManager;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
 
+import com.message.message_manipulation.service.MessageService;
+
+import io.github.bonigarcia.wdm.WebDriverManager;
+import jakarta.annotation.PostConstruct;
 
 @Service
 public class SeleniumService {
@@ -33,288 +32,41 @@ public class SeleniumService {
         this.messageService = messageService;
     }
 
-    
-
     @PostConstruct
     public void init() {
         try {
             WebDriverManager.chromedriver().setup();
             driver = new ChromeDriver();
-            driver.get("https://web.whatsapp.com");
+            driver.get("https://web.whatsapp.com"); // QR kod ile giriş yapılacak
             isInitialized = true;
-            log.info("Selenium basariyla baslatildi");
+            log.info("Selenium başarıyla başlatıldı ve WhatsApp Web açıldı.");
         } catch (Exception e) {
-            log.error("Selenium baslatma hatasi: ", e);
+            log.error("Selenium başlatma hatası: ", e);
         }
     }
 
     /**
-     * Sol paneldeki tum sohbetleri bulur, her birini tiklar ve mesajlari ceker.
-     */
-    public void fetchAllChats() {
-        try {
-            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(30));
-            
-            // QR kod taramasi icin yeterli sure bekle
-            wait.until(ExpectedConditions.presenceOfElementLocated(
-                By.cssSelector("div[aria-label='Sohbet listesi']")));
-            
-            // Yukleme ekraninin kaybolmasini bekle
-            wait.until(ExpectedConditions.invisibilityOfElementLocated(
-                By.cssSelector("div[data-testid='popup-overlay']")));
-            
-            // Sohbet listesini bul
-            List<WebElement> chatElements = wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(
-                By.cssSelector("div[aria-label='Kanal Listesi'] div[role='listitem']")));
-            
-            log.info("Toplam {} sohbet bulundu", chatElements.size());
-            
-            for (WebElement chat : chatElements) {
-                try {
-                    // Yukleme ekraninin kaybolmasini bekle
-                    wait.until(ExpectedConditions.invisibilityOfElementLocated(
-                        By.cssSelector("div[data-testid='popup-overlay']")));
-                    
-                    // Elementin gorunur ve tiklanabilir olmasini bekle
-                    WebElement clickableChat = wait.until(ExpectedConditions.elementToBeClickable(chat));
-                    
-                    // Gorunur olmasi icin kaydir
-                    ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block: 'center'});", clickableChat);
-                    Thread.sleep(1000); // Kaydirma animasyonunun tamamlanmasini bekle
-                    
-                    // Tum overlay elementlerinin kaybolmasini bekle
-                    wait.until(ExpectedConditions.invisibilityOfElementLocated(
-                        By.cssSelector(".overlay, .loading, div[data-testid='popup-overlay']")));
-                    
-                    // Normal tiklama dene, olmazsa JavaScript ile tikla
-                    try {
-                        wait.until(ExpectedConditions.elementToBeClickable(clickableChat));
-                        clickableChat.click();
-                    } catch (Exception e) {
-                        log.warn("Normal tiklama basarisiz, JavaScript ile deneniyor");
-                        ((JavascriptExecutor) driver).executeScript("arguments[0].click();", clickableChat);
-                    }
-                    
-                    // Mesajlarin yuklenmesini bekle
-                    wait.until(ExpectedConditions.presenceOfElementLocated(
-                        By.cssSelector("div[role='application']")));
-                    
-                    // Yukleme ekraninin kaybolmasini bekle
-                    wait.until(ExpectedConditions.invisibilityOfElementLocated(
-                        By.cssSelector("div[data-testid='popup-overlay']")));
-                    
-                    Thread.sleep(1500);
-                    
-                    // Sohbet adini al
-                    String chatName = getChatName(chat);
-                    log.info("Islenen sohbet: {}", chatName);
-                    
-                    // Mesajlari cek - artik dogru chatName ile
-                    fetchMessagesFromChat(chatName);
-                    
-                } catch (Exception e) {
-                    log.error("Sohbet isleme hatasi: ", e);
-                    continue;
-                }
-            }
-        } catch (Exception e) {
-            log.error("fetchAllChats hatasi: ", e);
-        }
-    }
-
-    /**
-     * Sohbet elementinden sohbet adini alir
-     */
-    private String getChatName(WebElement chatElement) {
-        try {
-            WebElement titleElement = chatElement.findElement(By.cssSelector("span[title]"));
-            String chatName = titleElement.getAttribute("title");
-            chatName = normalizeString(chatName);
-            return chatName != null && !chatName.isEmpty() ? chatName : "Bilinmeyen Sohbet";
-        } catch (Exception e) {
-            log.error("Sohbet adi alma hatasi: ", e);
-            return "Bilinmeyen Sohbet";
-        }
-    }
-
-    /**
-     * String icindeki Turkce karakterleri duzeltir
-     */
-    private String normalizeString(String input) {
-        if (input == null) return null;
-        
-        return input.replace('ı', 'i')
-                   .replace('İ', 'I')
-                   .replace('ğ', 'g')
-                   .replace('Ğ', 'G')
-                   .replace('ü', 'u')
-                   .replace('Ü', 'U')
-                   .replace('ş', 's')
-                   .replace('Ş', 'S')
-                   .replace('ö', 'o')
-                   .replace('Ö', 'O')
-                   .replace('ç', 'c')
-                   .replace('Ç', 'C');
-    }
-
-    /**
-     * Verilen bir sohbet adina tikladiktan sonra mesajlari DOM uzerinden alir.
-     */
-    public void fetchMessagesFromChat(String chatName) {
-        try {
-            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-            
-            // Mesaj konteynerinin yuklenmesini bekle
-            wait.until(ExpectedConditions.presenceOfElementLocated(
-                By.cssSelector("div[role='application']")));
-            
-            // Tum mesaj elementlerini bul (metin, resim, sticker vb.)
-            List<WebElement> messages = wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(
-                By.cssSelector("div[role='row']")));
-            
-            // Sadece son mesaji al
-            if (!messages.isEmpty()) {
-                WebElement lastMessage = messages.get(messages.size() - 1);
-                try {
-                    String messageType = determineMessageType(lastMessage);
-                    String messageContent = "";
-                    String sender = getSenderFromMessage(lastMessage);
-                    
-                    switch (messageType) {
-                        case "text":
-                            WebElement textElement = lastMessage.findElement(By.cssSelector("span.selectable-text"));
-                            messageContent = normalizeString(textElement.getText());
-                            break;
-                            
-                        case "image":
-                            messageContent = "[Resim]";
-                            try {
-                                WebElement imageCaption = lastMessage.findElement(By.cssSelector("span.selectable-text"));
-                                String caption = imageCaption.getText();
-                                if (!caption.isEmpty()) {
-                                    messageContent += " - Aciklama: " + caption;
-                                }
-                            } catch (Exception e) {
-                                // Resim aciklamasi yok, sadece [Resim] olarak kaydet
-                            }
-                            break;
-                            
-                        case "sticker":
-                            messageContent = "[Sticker]";
-                            break;
-                            
-                        case "document":
-                            messageContent = "[Dokuman]";
-                            try {
-                                WebElement docName = lastMessage.findElement(By.cssSelector("span[title]"));
-                                messageContent += " - " + docName.getAttribute("title");
-                            } catch (Exception e) {
-                                // Dokuman adi alinamadi
-                            }
-                            break;
-                            
-                        case "voice":
-                            messageContent = "[Sesli Mesaj]";
-                            break;
-                            
-                        default:
-                            messageContent = "[Diger Medya]";
-                    }
-                    
-                    if (!messageContent.isEmpty()) {
-                        sender = sender != null ? normalizeString(sender) : normalizeString(chatName);
-                        messageService.saveMessage(messageContent, sender);
-                    }
-                    
-                } catch (Exception e) {
-                    log.error("Son mesaj isleme hatasi: ", e);
-                }
-            }
-            
-            log.info("{} sohbetinden son mesaj alindi", normalizeString(chatName));
-            
-        } catch (Exception e) {
-            log.error("fetchMessagesFromChat hatasi: ", e);
-        }
-    }
-
-    private String determineMessageType(WebElement messageElement) {
-        try {
-            // Metin mesaji kontrolu
-            if (messageElement.findElements(By.cssSelector("span.selectable-text")).size() > 0) {
-                return "text";
-            }
-            
-            // Resim kontrolu
-            if (messageElement.findElements(By.cssSelector("img[data-testid='image-thumb']")).size() > 0) {
-                return "image";
-            }
-            
-            // Sticker kontrolu
-            if (messageElement.findElements(By.cssSelector("img[data-testid='sticker']")).size() > 0) {
-                return "sticker";
-            }
-            
-            // Dokuman kontrolu
-            if (messageElement.findElements(By.cssSelector("div[data-testid='document-thumb']")).size() > 0) {
-                return "document";
-            }
-            
-            // Sesli mesaj kontrolu
-            if (messageElement.findElements(By.cssSelector("div[data-testid='audio-player']")).size() > 0) {
-                return "voice";
-            }
-            
-            return "unknown";
-        } catch (Exception e) {
-            log.error("Mesaj tipi belirleme hatasi: ", e);
-            return "unknown";
-        }
-    }
-
-    /**
-     * Mesajdan gondereni alir
-     */
-    private String getSenderFromMessage(WebElement messageElement) {
-        try {
-            // Mesajin icindeki gonderen adini bul
-            WebElement senderElement = messageElement.findElement(By.cssSelector("div[data-pre-plain-text]"));
-            String senderInfo = senderElement.getAttribute("data-pre-plain-text");
-            
-            // "[HH:mm] Gonderen:" formatindan gonderen adini ayikla
-            if (senderInfo != null && senderInfo.contains(":")) {
-                String[] parts = senderInfo.split(":");
-                if (parts.length > 1) {
-                    return parts[1].trim().replace("]", "").trim();
-                }
-            }
-            return null;
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    /**
-     * Yeni mesajlari tespit etmek icin periyodik dongu: 10 saniyede bir tum sohbetleri kontrol et.
+     * 10 saniyede bir yalnızca "Kanallar" sekmesindeki mesajları almak için çağrılan metot.
      */
     @Scheduled(fixedDelay = 10000)
     public void startListening() {
         try {
             if (!isInitialized || driver == null) {
-                log.warn("Driver baslatilmamis, yeniden baslatiliyor...");
+                log.warn("Driver başlatılmamış, yeniden başlatılıyor...");
                 init();
                 return;
             }
-            fetchAllChats();
+            // Sadece kanalları işleme
+            fetchAllChannels();
+
         } catch (Exception e) {
-            log.error("Dinleme hatasi: ", e);
-            // Oturum hatasi durumunda yeniden baslat
+            log.error("Dinleme hatası: ", e);
             isInitialized = false;
             if (driver != null) {
                 try {
                     driver.quit();
                 } catch (Exception quitEx) {
-                    log.error("Driver kapatma hatasi: ", quitEx);
+                    log.error("Driver kapatma hatası: ", quitEx);
                 }
                 driver = null;
             }
@@ -322,7 +74,252 @@ public class SeleniumService {
     }
 
     /**
-     * Uygulama sonlandiginda driver'i kapatalim.
+     * "Kanallar" sekmesini açmak için butona tıklar.
+     */
+    private void openChannelsTab() {
+        try {
+            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+
+            // "Kanallar" sekmesini temsil eden butonu bul
+            // DOM'u inceleyip buton[aria-label='Kanallar'] vb. olarak güncelleyin
+            WebElement channelsTabBtn = wait.until(ExpectedConditions.elementToBeClickable(
+                By.cssSelector("button[aria-label='Kanallar']")
+            ));
+
+            channelsTabBtn.click();
+
+            // Kanal listesi container görünene kadar bekle
+            wait.until(ExpectedConditions.visibilityOfElementLocated(
+                By.cssSelector("div[aria-label='Kanal Listesi']"))
+            );
+
+            log.info("Kanallar sekmesi açıldı.");
+        } catch (Exception e) {
+            log.error("Kanallar sekmesine geçilemedi: ", e);
+        }
+    }
+
+    /**
+     * "Kanallar" sekmesindeki tüm kanalları bulur, her bir kanala tıklar ve son mesajını çeker.
+     */
+    private void fetchAllChannels() {
+        try {
+            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(30));
+
+            // Önce kanallar sekmesini aç
+            openChannelsTab();
+
+            // Kanal listesi item'larını bul
+            List<WebElement> channelElements = wait.until(
+                ExpectedConditions.presenceOfAllElementsLocatedBy(
+                    By.cssSelector("div[aria-label='Kanal Listesi'] div[role='listitem']"))
+            );
+
+            log.info("Toplam {} kanal bulundu.", channelElements.size());
+
+            for (WebElement channel : channelElements) {
+                try {
+                    wait.until(ExpectedConditions.invisibilityOfElementLocated(
+                        By.cssSelector("div[data-testid='popup-overlay']")));
+
+                    WebElement clickableChannel = wait.until(ExpectedConditions.elementToBeClickable(channel));
+
+                    // Görünür alana kaydır
+                    ((JavascriptExecutor) driver).executeScript(
+                            "arguments[0].scrollIntoView({block: 'center'});", clickableChannel);
+                    Thread.sleep(1000);
+
+                    // Normal tıklama dene, başarısızsa JS click
+                    try {
+                        clickableChannel.click();
+                    } catch (Exception e) {
+                        log.warn("Normal tıklama başarısız, JS tıklama deneniyor.");
+                        ((JavascriptExecutor) driver).executeScript(
+                                "arguments[0].click();", clickableChannel);
+                    }
+
+                    // Kanal içeriğinin yüklendiğini bekleyebilirsiniz
+                    wait.until(ExpectedConditions.presenceOfElementLocated(
+                        By.cssSelector("div[role='application']")));
+                    Thread.sleep(1500);
+
+                    // Kanal adını al
+                    String channelName = getChannelName(channel);
+                    log.info("İşlenen kanal: {}", channelName);
+
+                    // Kanal içeriğinden son mesajı çek
+                    fetchMessagesFromChannel(channelName);
+
+                } catch (Exception e) {
+                    log.error("Kanal işleme hatası: ", e);
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("fetchAllChannels hatası: ", e);
+        }
+    }
+
+    /**
+     * Kanal öğesinden kanal adını almak (span[title] vb.)
+     */
+    private String getChannelName(WebElement channelElement) {
+        try {
+            WebElement titleElement = channelElement.findElement(By.cssSelector("span[title]"));
+            String channelName = titleElement.getAttribute("title");
+            return normalizeString(channelName);
+        } catch (Exception e) {
+            log.error("Kanal adı alma hatası: ", e);
+            return "Bilinmeyen Kanal";
+        }
+    }
+
+    /**
+     * Türkçe karakterleri normalleştirme (isteğe bağlı)
+     */
+    private String normalizeString(String input) {
+        if (input == null) return null;
+        return input.replace('ı', 'i')
+                    .replace('İ', 'I')
+                    .replace('ğ', 'g')
+                    .replace('Ğ', 'G')
+                    .replace('ü', 'u')
+                    .replace('Ü', 'U')
+                    .replace('ş', 's')
+                    .replace('Ş', 'S')
+                    .replace('ö', 'o')
+                    .replace('Ö', 'O')
+                    .replace('ç', 'c')
+                    .replace('Ç', 'C');
+    }
+
+    /**
+     * Kanalın içindeki son mesajı DOM üzerinden alır.
+     */
+    private void fetchMessagesFromChannel(String channelName) {
+        try {
+            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+
+            // Mesaj konteynerini bekle
+            wait.until(ExpectedConditions.presenceOfElementLocated(
+                By.cssSelector("div[role='application']")));
+
+            // Tüm mesaj öğelerini bul
+            List<WebElement> messages = wait.until(ExpectedConditions
+                    .presenceOfAllElementsLocatedBy(By.cssSelector("div[role='row']")));
+
+            // Son mesaj
+            if (!messages.isEmpty()) {
+                WebElement lastMessage = messages.get(messages.size() - 1);
+                try {
+                    String msgType = determineMessageType(lastMessage);
+                    String msgContent = "";
+                    String sender = getSenderFromMessage(lastMessage);
+
+                    switch (msgType) {
+                        case "text":
+                            WebElement textElement = lastMessage.findElement(
+                                    By.cssSelector("span.selectable-text"));
+                            msgContent = normalizeString(textElement.getText());
+                            break;
+                        case "image":
+                            msgContent = "[Resim]";
+                            break;
+                        case "sticker":
+                            msgContent = "[Sticker]";
+                            break;
+                        case "document":
+                            msgContent = "[Doküman]";
+                            break;
+                        case "voice":
+                            msgContent = "[Sesli Mesaj]";
+                            break;
+                        default:
+                            msgContent = "[Diğer Medya]";
+                    }
+
+                    if (!msgContent.isEmpty()) {
+                        // Gönderen bulamadıysak kanal adını kullanabilirsiniz
+                        if (sender == null || sender.isEmpty()) {
+                            sender = channelName;
+                        }
+                        sender = normalizeString(sender);
+
+                        // Veritabanına kaydet
+                        messageService.saveMessage(msgContent, sender);
+                    }
+
+                } catch (Exception e) {
+                    log.error("Son mesaj işleme hatası: ", e);
+                }
+            }
+
+            log.info("Kanal: {}, son mesaj alındı", normalizeString(channelName));
+
+        } catch (Exception e) {
+            log.error("fetchMessagesFromChannel hatası: ", e);
+        }
+    }
+
+    /**
+     * Son mesajın tipini belirleme (text/image vs.)
+     */
+    private String determineMessageType(WebElement messageElement) {
+        try {
+            // Metin
+            if (!messageElement.findElements(By.cssSelector("span.selectable-text")).isEmpty()) {
+                return "text";
+            }
+            // Resim
+            if (!messageElement.findElements(By.cssSelector("img[data-testid='image-thumb']")).isEmpty()) {
+                return "image";
+            }
+            // Sticker
+            if (!messageElement.findElements(By.cssSelector("img[data-testid='sticker']")).isEmpty()) {
+                return "sticker";
+            }
+            // Doküman
+            if (!messageElement.findElements(By.cssSelector("div[data-testid='document-thumb']")).isEmpty()) {
+                return "document";
+            }
+            // Sesli mesaj
+            if (!messageElement.findElements(By.cssSelector("div[data-testid='audio-player']")).isEmpty()) {
+                return "voice";
+            }
+            return "unknown";
+        } catch (Exception e) {
+            log.error("Mesaj tipi belirleme hatası: ", e);
+            return "unknown";
+        }
+    }
+
+    /**
+     * Mesaj balonundan göndereni almak. 
+     * Kanallarda farklı olabilir, test ederek DOM'u güncellemelisiniz.
+     */
+    private String getSenderFromMessage(WebElement messageElement) {
+        try {
+            WebElement senderElement = messageElement.findElement(
+                    By.cssSelector("div[data-pre-plain-text]"));
+            String senderInfo = senderElement.getAttribute("data-pre-plain-text");
+
+            // "[15, 2/11/2025] Amazon Indirimleri - OZEL FIRSATLAR:" formatından sadece ismi al
+            if (senderInfo != null && senderInfo.contains("]")) {
+                // "]" karakterinden sonraki kısmı al ve ":" karakterini kaldır
+                String[] parts = senderInfo.split("]");
+                if (parts.length > 1) {
+                    return parts[1].replace(":", "").trim();
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            log.error("Gönderen bilgisi alma hatası: ", e);
+            return null;
+        }
+    }
+
+    /**
+     * Uygulama sonlandığında driver'ı kapatmak için
      */
     public void closeDriver() {
         if (driver != null) {
