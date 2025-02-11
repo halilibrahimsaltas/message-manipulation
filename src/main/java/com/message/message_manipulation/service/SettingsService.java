@@ -36,4 +36,8 @@ public class SettingsService {
     public List<String> getListValue(String propKey) {
         return Arrays.asList(getValue(propKey).split(","));
     }
+
+    public List<Settings> getAll() {
+        return settingsRepository.findAll();
+    }
 }
