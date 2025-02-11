@@ -55,11 +55,11 @@ Bu proje, WhatsApp Web üzerinden gelen mesajları Selenium kullanarak otomatik 
    git clone https://github.com/kullaniciadi/proje-adi.git
 
 2. Maven ile proje derleyin:
-  ```bash
+   ```bash
    mvn clean install
 
 3. Uygulamayı başlatın:
- ```bash
+    ```bash
    java -jar target/whatsapp-web-1.0-SNAPSHOT.jar
 
 ### Frontend
@@ -69,11 +69,11 @@ Bu proje, WhatsApp Web üzerinden gelen mesajları Selenium kullanarak otomatik 
    cd frontend
 
 2. Bağımlılıkları yükleyin:
-  ```bash
+   ```bash
    npm install
 
 3. Geliştirme sunucusunu başlatın:
-  ```bash
+   ```bash
    npm run dev
 
 ## 📝 Kullanım
