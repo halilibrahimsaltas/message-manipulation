@@ -5,11 +5,8 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
-
 
 /**
  * Telegram'a mesaj göndermek için kullanılan servis
@@ -21,44 +18,50 @@ public class ForwardService {
     private static final Logger log = LoggerFactory.getLogger(ForwardService.class);
     private static final String TELEGRAM_API_URL = "https://api.telegram.org/bot"; 
     private final RestTemplate restTemplate;
+    private final SettingsService settingsService;
 
-    @Value("${telegram.bot.token}")
-    private String botToken;
-
-    @Value("${telegram.bot.chatId}")
-    private String chatId;
-
-    public ForwardService(RestTemplate restTemplate) {
+    public ForwardService(RestTemplate restTemplate, SettingsService settingsService) {
         this.restTemplate = restTemplate;
+        this.settingsService = settingsService;
     }
 
     /**
      * Telegram'a mesaj gönderir.
      */
-    public void sendToTelegram(String messageText) {
+    public void sendToTelegram(String chatId, String messageText) {
         try {
-            if (botToken == null || botToken.isEmpty()) {
-                log.error("Telegram bot token tanimlanmamis!");
+            String token = settingsService.getValue("telegram.bot.token");
+            if (token == null || token.isEmpty()) {
+                log.error("Telegram bot token tanımlanmamış!");
                 return;
             }
 
-            // Chat ID'nin başında '-' varsa kaldır ve tekrar ekle
             String formattedChatId = chatId.startsWith("-") ? chatId : "-" + chatId;
+            String url = TELEGRAM_API_URL + token + "/sendMessage";
             
-            String url = TELEGRAM_API_URL + botToken + "/sendMessage";
-
-            Map<String, String> requestBody = new HashMap<>();
-            requestBody.put("chat_id", formattedChatId);
-            requestBody.put("text", messageText);
-            requestBody.put("parse_mode", "HTML");
-
-            restTemplate.postForObject(url, requestBody, String.class);
-            log.info("Telegram mesaji gonderildi: {}", messageText);
+            Map<String, String> body = new HashMap<>();
+            body.put("chat_id", formattedChatId);
+            body.put("text", messageText);
+            body.put("parse_mode", "HTML"); // HTML formatını destekle
             
-        } catch (RestClientException e) {
-            log.error("Telegram API hatasi: ", e);
-        } catch (IllegalArgumentException e) {
-            log.error("Gecersiz parametre hatasi: ", e);
+            restTemplate.postForObject(url, body, String.class);
+            log.info("Telegram mesajı gönderildi: {}", messageText);
+            
+        } catch (Exception e) {
+            log.error("Telegram mesaj gönderme hatası: ", e);
+        }
+    }
+
+    public void sendToAllChats(String messageText) {
+        String chatIdsStr = settingsService.getValue("telegram.bot.chatIds");
+        if (chatIdsStr == null || chatIdsStr.isEmpty()) {
+            log.error("Telegram chat ID'leri tanımlanmamış!");
+            return;
+        }
+
+        String[] chatIds = chatIdsStr.split(",");
+        for (String chatId : chatIds) {
+            sendToTelegram(chatId.trim(), messageText);
         }
     }
 
@@ -67,19 +70,10 @@ public class ForwardService {
      */
     public void forwardMessage(String sender, String content) {
         try {
-            // Mesaj formatı: 
-            // <b>Gönderen:</b> Ahmet
-            // <i>Mesaj:</i> Merhaba dünya
-            String formattedMessage = String.format(
-                "<b>Gonderen:</b> %s\n<i>Mesaj:</i> %s",
-                sender,
-                content
-            );
-            
-            sendToTelegram(formattedMessage);
-            
+            // Sadece mesaj içeriğini gönder
+            sendToAllChats(content);
         } catch (Exception e) {
-            log.error("Mesaj yonlendirme hatasi: ", e);
+            log.error("Mesaj yönlendirme hatası: ", e);
         }
     }
 }
