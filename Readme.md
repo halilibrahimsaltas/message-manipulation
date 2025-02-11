@@ -5,25 +5,21 @@ Bu proje, WhatsApp Web üzerinden gelen mesajları Selenium kullanarak otomatik 
 ## 🚀 Özellikler
 
 ### WhatsApp Web Entegrasyonu
-
 - Selenium WebDriver ile otomatik tarayıcı kontrolü
 - WhatsApp Web üzerinden mesajların gerçek zamanlı takibi
 - QR kod tarama sonrası otomatik mesaj izleme
 
 ### Veritabanı İşlemleri
-
 - PostgreSQL veritabanı entegrasyonu
 - Mesaj içeriği, gönderen ve zaman bilgilerinin saklanması
 - JPA/Hibernate ile ORM desteği
 
 ### Telegram Entegrasyonu
-
 - Telegram Bot API kullanarak mesaj iletimi
 - Dinamik bot token ve chat ID yapılandırması
 - Çoklu kanal/grup desteği
 
 ### Web Arayüzü
-
 - React tabanlı modern kullanıcı arayüzü
 - Gerçek zamanlı mesaj listesi
 - Gelişmiş arama özellikleri
@@ -32,17 +28,19 @@ Bu proje, WhatsApp Web üzerinden gelen mesajları Selenium kullanarak otomatik 
 ## 🛠️ Teknolojiler
 
 ### Backend
-
 - Java 17
 - Spring Boot
 - Selenium WebDriver
 - PostgreSQL
 - JPA/Hibernate
 - Telegram Bot API
+- Kafka
+- Redis
+- Docker
+- AWS
 - Maven
 
 ### Frontend
-
 - React 19
 - Vite
 - React Router v6
@@ -52,31 +50,30 @@ Bu proje, WhatsApp Web üzerinden gelen mesajları Selenium kullanarak otomatik 
 ## ⚙️ Kurulum
 
 ### Backend
-
-1. Projeyi klonlayın:  
-   bash
+1. Projeyi klonlayın:
+   ```bash
    git clone https://github.com/kullaniciadi/proje-adi.git
 
 2. Maven ile proje derleyin:
-   bash
+  ```bash
    mvn clean install
 
 3. Uygulamayı başlatın:
-   bash
+ ```bash
    java -jar target/whatsapp-web-1.0-SNAPSHOT.jar
 
 ### Frontend
 
 1. Frontend klasörüne gidin:
-   bash
+   ```bash
    cd frontend
 
 2. Bağımlılıkları yükleyin:
-   bash
+  ```bash
    npm install
 
 3. Geliştirme sunucusunu başlatın:
-   bash
+  ```bash
    npm run dev
 
 ## 📝 Kullanım
