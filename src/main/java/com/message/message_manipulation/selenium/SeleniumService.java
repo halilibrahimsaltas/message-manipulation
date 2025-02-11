@@ -1,8 +1,10 @@
 package com.message.message_manipulation.selenium;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.time.Duration;
-
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
@@ -15,10 +17,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import com.message.message_manipulation.dto.ProductInfo;
 import com.message.message_manipulation.service.MessageService;
 
 import io.github.bonigarcia.wdm.WebDriverManager;
 import jakarta.annotation.PostConstruct;
+import org.openqa.selenium.WindowType;  
 
 @Service
 public class SeleniumService {
@@ -28,8 +32,20 @@ public class SeleniumService {
     private static final Logger log = LoggerFactory.getLogger(SeleniumService.class);
     private boolean isInitialized = false;
 
+    private static final Pattern LINK_PATTERN = 
+        Pattern.compile("(https?://[^\\s]+)");
+
     public SeleniumService(MessageService messageService) {
         this.messageService = messageService;
+    }
+
+    private List<String> extractLinks(String text) {
+        List<String> links = new ArrayList<>();
+        Matcher matcher = LINK_PATTERN.matcher(text);
+        while (matcher.find()) {
+            links.add(matcher.group(1));
+        }
+        return links;
     }
 
     @PostConstruct
@@ -160,6 +176,8 @@ public class SeleniumService {
         }
     }
 
+    
+
     /**
      * Kanal öğesinden kanal adını almak (span[title] vb.)
      */
@@ -199,65 +217,29 @@ public class SeleniumService {
     private void fetchMessagesFromChannel(String channelName) {
         try {
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+            wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("div[role='application']")));
 
-            // Mesaj konteynerini bekle
-            wait.until(ExpectedConditions.presenceOfElementLocated(
-                By.cssSelector("div[role='application']")));
-
-            // Tüm mesaj öğelerini bul
             List<WebElement> messages = wait.until(ExpectedConditions
                     .presenceOfAllElementsLocatedBy(By.cssSelector("div[role='row']")));
 
-            // Son 3 mesajı al
             int startIndex = Math.max(0, messages.size() - 3);
             List<WebElement> lastThreeMessages = messages.subList(startIndex, messages.size());
 
-            // Mesajları sondan başa doğru işle (en eskiden yeniye)
             for (WebElement message : lastThreeMessages) {
                 try {
                     String msgType = determineMessageType(message);
-                    String msgContent = "";
-                    String sender = getSenderFromMessage(message);
-
-                    switch (msgType) {
-                        case "text":
-                            WebElement textElement = message.findElement(
-                                    By.cssSelector("span.selectable-text"));
-                            msgContent = normalizeString(textElement.getText());
-                            break;
-                        case "image":
-                            msgContent = "[Resim]";
-                            break;
-                        case "sticker":
-                            msgContent = "[Sticker]";
-                            break;
-                        case "document":
-                            msgContent = "[Doküman]";
-                            break;
-                        case "voice":
-                            msgContent = "[Sesli Mesaj]";
-                            break;
-                        default:
-                            msgContent = "[Diğer Medya]";
+                    if (msgType.equals("text")) {
+                        WebElement textElement = message.findElement(By.cssSelector("span.selectable-text"));
+                        String msgContent = normalizeString(textElement.getText());
+                        String sender = getSenderFromMessage(message);
+                        
+                        // Link kontrolü ve işleme
+                        processIncomingMessage(msgContent, sender != null ? sender : channelName);
                     }
-
-                    if (!msgContent.isEmpty()) {
-                        if (sender == null || sender.isEmpty()) {
-                            sender = channelName;
-                        }
-                        sender = normalizeString(sender);
-
-                        // Mesajı kaydet
-                        messageService.saveMessage(msgContent, sender);
-                    }
-
                 } catch (Exception e) {
                     log.error("Mesaj işleme hatası: ", e);
                 }
             }
-
-            log.info("Kanal: {}, son 3 mesaj alındı", normalizeString(channelName));
-
         } catch (Exception e) {
             log.error("fetchMessagesFromChannel hatası: ", e);
         }
@@ -318,6 +300,133 @@ public class SeleniumService {
             log.error("Gönderen bilgisi alma hatası: ", e);
             return null;
         }
+    }
+
+    /**
+     * Siteden ürün adı, fiyat, resim linki gibi bilgileri alır.
+     * Domain veya elementin varlığına göre if-else / try-catch
+     */
+    private ProductInfo scrapeProductInfo(String url) {
+        ProductInfo info = new ProductInfo();
+        info.setPageUrl(url);
+        
+        try {
+            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+            
+            if (url.contains("amazon.com.tr")) {
+                // Amazon için selektörler
+                wait.until(ExpectedConditions.presenceOfElementLocated(By.id("productTitle")));
+                
+                info.setName(driver.findElement(By.cssSelector("#productTitle")).getText().trim());
+                info.setPrice(driver.findElements(By.cssSelector("span.a-price-whole"))
+                        .stream().findFirst()
+                        .map(WebElement::getText)
+                        .orElse("Fiyat bulunamadı"));
+                info.setImageUrl(driver.findElements(By.cssSelector("#landingImage, #imgBlkFront"))
+                        .stream().findFirst()
+                        .map(e -> e.getAttribute("src"))
+                        .orElse(""));
+                        
+            } else if (url.contains("trendyol.com")) {
+                // Trendyol için selektörler
+                wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector(".pr-new-br")));
+                
+                info.setName(driver.findElement(By.cssSelector(".pr-new-br")).getText().trim());
+                info.setPrice(driver.findElements(By.cssSelector(".prc-dsc, .prc-slg"))
+                        .stream().findFirst()
+                        .map(WebElement::getText)
+                        .orElse("Fiyat bulunamadı"));
+                info.setImageUrl(driver.findElements(By.cssSelector(".base-product-image img"))
+                        .stream().findFirst()
+                        .map(e -> e.getAttribute("src"))
+                        .orElse(""));
+                        
+            } else if (url.contains("hepsiburada.com")) {
+                // Hepsiburada için selektörler
+                wait.until(ExpectedConditions.presenceOfElementLocated(By.id("product-name")));
+                
+                info.setName(driver.findElement(By.cssSelector("#product-name")).getText().trim());
+                info.setPrice(driver.findElements(By.cssSelector("[data-price], .product-price"))
+                        .stream().findFirst()
+                        .map(WebElement::getText)
+                        .orElse("Fiyat bulunamadı"));
+                info.setImageUrl(driver.findElements(By.cssSelector("#image-0"))
+                        .stream().findFirst()
+                        .map(e -> e.getAttribute("src"))
+                        .orElse(""));
+            }
+            
+            return info;
+        } catch (Exception e) {
+            log.error("Ürün bilgisi çekme hatası: {} - URL: {}", e.getMessage(), url);
+            return info;
+        }
+    }
+
+    /**
+     * Örnek: Selenium ile WhatsApp'tan gelen mesaj
+     */
+    public void processIncomingMessage(String whatsappText, String sender) {
+        try {
+            List<String> links = extractLinks(whatsappText);
+            if (links.isEmpty()) {
+                log.info("Bu mesajda link yok: {}", whatsappText);
+                return;
+            }
+
+            for (String link : links) {
+                try {
+                    String originalWindow = driver.getWindowHandle();
+                    
+                    // Yeni sekme aç
+                    driver.switchTo().newWindow(WindowType.TAB);
+                    driver.get(link);
+                    
+                    // Sayfa yüklenme beklemesi
+                    Thread.sleep(3000); // Genel bekleme
+                    
+                    // Ürün bilgilerini çek
+                    ProductInfo info = scrapeProductInfo(link);
+                    
+                    // Mesaj oluştur ve gönder
+                    if (info.getName() != null && !info.getName().isEmpty()) {
+                        String templateMessage = buildMessageTemplate(info);
+                        messageService.saveMessage(templateMessage, sender);
+                    }
+                    
+                    // Sekmeyi kapat ve ana sekmeye dön
+                    driver.close();
+                    driver.switchTo().window(originalWindow);
+                    
+                    // İşlemler arası bekleme
+                    Thread.sleep(1000);
+                    
+                } catch (Exception e) {
+                    log.error("Link işleme hatası: {} - Link: {}", e.getMessage(), link);
+                }
+            }
+        } catch (Exception e) {
+            log.error("Mesaj işleme hatası: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Ürün bilgisine dayalı mesaj şablonu
+     */
+    private String buildMessageTemplate(ProductInfo info) {
+        return String.format("""
+            %s
+            
+            💰 %s
+            
+            
+            🔗 %s
+            
+            #işbirliği """,
+            info.getName(),
+            info.getPrice(),
+            info.getPageUrl()
+        );
     }
 
     /**
