@@ -34,7 +34,7 @@ public class MessageService {
 
     public void saveMessage(String content, String sender) {
         try {
-            // Sadece mesaj içeriğine bakarak son 1 dakika içinde aynı mesaj var mı kontrol et
+            // Son 1 dakika içinde aynı mesaj var mı kontrol et
             LocalDateTime oneMinuteAgo = LocalDateTime.now(ZoneId.of("Europe/Istanbul")).minusMinutes(1);
             boolean exists = messageRepository.existsByContentAndReceivedAtAfter(content, oneMinuteAgo);
 
@@ -45,9 +45,13 @@ public class MessageService {
                 message.setSender(sender);
                 message.setReceivedAt(LocalDateTime.now(ZoneId.of("Europe/Istanbul")));
                 
-                messageRepository.save(message);
-                forwardService.sendToAllChats(message.getConvertedText());
-                log.debug("Yeni mesaj kaydedildi: {}", content);
+                // Mesajı kaydet
+                Message savedMessage = messageRepository.save(message);
+                
+                // Her mesajı Telegram'a gönder
+                forwardService.forwardMessage(sender, savedMessage.getConvertedText());
+                
+                log.debug("Yeni mesaj kaydedildi ve iletildi: {}", content);
             } else {
                 log.debug("Tekrar eden mesaj atlandı: {}", content);
             }

@@ -18,7 +18,7 @@ public class ForwardService {
     private final RestTemplate restTemplate;
     private final SettingsService settingsService;
 
-    public ForwardService(RestTemplate restTemplate, SettingsService settingsService) {
+    public ForwardService(RestTemplate restTemplate, SettingsService settingsService) { 
         this.restTemplate = restTemplate;
         this.settingsService = settingsService;
     }
@@ -64,18 +64,17 @@ public class ForwardService {
     }
 
     /**
-     * WhatsApp mesajını Telegram'a atarken satır sonlarını <br> ile korur.
+     * WhatsApp mesajını Telegram'a atarken satır sonlarını \n ile korur.
      */
     public void forwardMessage(String sender, String content) {
         try {
-            // Satır sonlarını korumak için \n'leri <br> ile değiştirelim
-            String withLineBreaks = convertLineBreaksToHtml(content);
+            // Mesaj formatını hazırla - HTML <br> yerine \n kullan
+            String formattedMessage = String.format("<b>%s</b>\n%s", 
+                sender, 
+                content.replace("<br>", "\n"));
 
-            // İsterseniz linkleri <a> etiketine dönüştürme gibi ek dönüştürmeler de yapabilirsiniz
-            // Örn: withLineBreaks = convertLinksToHtmlAnchors(withLineBreaks);
-
-            // Şimdi dönüştürülmüş metni tüm chat'lere gönder
-            sendToAllChats(withLineBreaks);
+            // Formatlı mesajı tüm chat'lere gönder
+            sendToAllChats(formattedMessage);
 
         } catch (Exception e) {
             log.error("Mesaj yönlendirme hatası: ", e);
@@ -83,12 +82,14 @@ public class ForwardService {
     }
 
     /**
-     * Windows'ta \r\n, Linux'ta \n olabilir; bunları <br> ile değiştirip HTML satır atlaması sağlıyor.
+     * Windows'ta \r\n, Linux'ta \n olabilir; bunları \n ile değiştirip Telegram satır atlaması sağlıyor.
      */
-    private String convertLineBreaksToHtml(String input) {
+   /** 
+    * private String convertLineBreaksToHtml(String input) {
         if (input == null) return "";
         return input
-            .replace("\r\n", "\n")
-            .replace("\n", "<br>");
+            .replace("\r\n", "\n")  // Windows satır sonlarını normalize et
+            .replace("\n", "\n");    // Normal satır sonu kullan, <br> değil
     }
+    */
 }

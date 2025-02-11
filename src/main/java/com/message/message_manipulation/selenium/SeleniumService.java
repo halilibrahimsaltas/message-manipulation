@@ -208,17 +208,20 @@ public class SeleniumService {
             List<WebElement> messages = wait.until(ExpectedConditions
                     .presenceOfAllElementsLocatedBy(By.cssSelector("div[role='row']")));
 
-            // Son mesaj
-            if (!messages.isEmpty()) {
-                WebElement lastMessage = messages.get(messages.size() - 1);
+            // Son 3 mesajı al
+            int startIndex = Math.max(0, messages.size() - 3);
+            List<WebElement> lastThreeMessages = messages.subList(startIndex, messages.size());
+
+            // Mesajları sondan başa doğru işle (en eskiden yeniye)
+            for (WebElement message : lastThreeMessages) {
                 try {
-                    String msgType = determineMessageType(lastMessage);
+                    String msgType = determineMessageType(message);
                     String msgContent = "";
-                    String sender = getSenderFromMessage(lastMessage);
+                    String sender = getSenderFromMessage(message);
 
                     switch (msgType) {
                         case "text":
-                            WebElement textElement = lastMessage.findElement(
+                            WebElement textElement = message.findElement(
                                     By.cssSelector("span.selectable-text"));
                             msgContent = normalizeString(textElement.getText());
                             break;
@@ -239,22 +242,21 @@ public class SeleniumService {
                     }
 
                     if (!msgContent.isEmpty()) {
-                        // Gönderen bulamadıysak kanal adını kullanabilirsiniz
                         if (sender == null || sender.isEmpty()) {
                             sender = channelName;
                         }
                         sender = normalizeString(sender);
 
-                        // Veritabanına kaydet
+                        // Mesajı kaydet
                         messageService.saveMessage(msgContent, sender);
                     }
 
                 } catch (Exception e) {
-                    log.error("Son mesaj işleme hatası: ", e);
+                    log.error("Mesaj işleme hatası: ", e);
                 }
             }
 
-            log.info("Kanal: {}, son mesaj alındı", normalizeString(channelName));
+            log.info("Kanal: {}, son 3 mesaj alındı", normalizeString(channelName));
 
         } catch (Exception e) {
             log.error("fetchMessagesFromChannel hatası: ", e);
