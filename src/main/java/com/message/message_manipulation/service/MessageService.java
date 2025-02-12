@@ -46,7 +46,7 @@ public class MessageService {
         try {
             Message message = new Message();
             message.setContent(content);
-            message.setConvertedText(content); // Link dönüşümünü kaldırdık
+            message.setConvertedText(content); // Artık link dönüşümü SeleniumService'de yapılıyor
             message.setSender(sender);
             message.setReceivedAt(LocalDateTime.now(ZoneId.of("Europe/Istanbul")));
             

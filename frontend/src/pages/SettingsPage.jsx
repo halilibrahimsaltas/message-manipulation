@@ -113,7 +113,9 @@ function getSettingDescription(key) {
   const descriptions = {
     'telegram.bot.token': 'Telegram Bot API anahtarı',
     'telegram.bot.chatIds': 'Mesajların iletileceği Telegram kanal/grup ID\'leri (virgülle ayrılmış)',
-    'link.conversion.ref': 'Link dönüştürme referans parametresi'
+    'link.conversion.ref': 'Link dönüştürme referans parametresi',
+    'apiKey': 'API Key',
+    'networkId': 'Network ID'
   };
   return descriptions[key] || 'Ayar açıklaması';
 }

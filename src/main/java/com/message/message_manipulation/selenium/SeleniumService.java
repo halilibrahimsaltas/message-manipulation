@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import com.message.message_manipulation.dto.ProductInfo;
 import com.message.message_manipulation.service.MessageService;
+import com.message.message_manipulation.service.LinkConversionService;
 
 import io.github.bonigarcia.wdm.WebDriverManager;
 import jakarta.annotation.PostConstruct;
@@ -29,14 +30,16 @@ public class SeleniumService {
 
     private WebDriver driver;
     private final MessageService messageService;
+    private final LinkConversionService linkConversionService;
     private static final Logger log = LoggerFactory.getLogger(SeleniumService.class);
     private boolean isInitialized = false;
 
     private static final Pattern LINK_PATTERN = 
         Pattern.compile("(https?://[^\\s]+)");
 
-    public SeleniumService(MessageService messageService) {
+    public SeleniumService(MessageService messageService, LinkConversionService linkConversionService) {
         this.messageService = messageService;
+        this.linkConversionService = linkConversionService;
     }
 
     private List<String> extractLinks(String text) {
@@ -419,6 +422,9 @@ public class SeleniumService {
      * Ürün bilgisine dayalı mesaj şablonu
      */
     private String buildMessageTemplate(ProductInfo info) {
+        // Önce link dönüşümünü yap
+        String convertedLink = linkConversionService.generateTrackingLink(info.getPageUrl());
+        
         return String.format("""
             %s
             
@@ -430,7 +436,7 @@ public class SeleniumService {
             #işbirliği """,
             info.getName(),
             info.getPrice(),
-            info.getPageUrl()
+            convertedLink  // Dönüştürülmüş linki kullan
         );
     }
 
