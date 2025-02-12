@@ -383,22 +383,27 @@ public class SeleniumService {
                     driver.get(link);
                     
                     // Sayfa yüklenme beklemesi
-                    Thread.sleep(3000); // Genel bekleme
+                    Thread.sleep(3000);
                     
                     // Ürün bilgilerini çek
                     ProductInfo info = scrapeProductInfo(link);
                     
-                    // Mesaj oluştur ve gönder
+                    // Ürün adı kontrolü yap
                     if (info.getName() != null && !info.getName().isEmpty()) {
-                        String templateMessage = buildMessageTemplate(info);
-                        messageService.saveMessage(templateMessage, sender);
+                        // Ürün daha önce paylaşılmış mı kontrol et
+                        if (!messageService.isProductExists(info.getName())) {
+                            String templateMessage = buildMessageTemplate(info);
+                            messageService.saveMessage(templateMessage, sender);
+                            log.info("Yeni ürün paylaşıldı: {}", info.getName());
+                        } else {
+                            log.info("Bu ürün zaten paylaşılmış: {}", info.getName());
+                        }
                     }
                     
                     // Sekmeyi kapat ve ana sekmeye dön
                     driver.close();
                     driver.switchTo().window(originalWindow);
                     
-                    // İşlemler arası bekleme
                     Thread.sleep(1000);
                     
                 } catch (Exception e) {
@@ -417,7 +422,7 @@ public class SeleniumService {
         return String.format("""
             %s
             
-            💰 %s
+            💰₺ %s
             
             
             🔗 %s

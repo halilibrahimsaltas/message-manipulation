@@ -21,4 +21,6 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     List<Message> findTop3BySenderOrderByReceivedAtDesc(String sender);
     @Query("SELECT DISTINCT m.content FROM Message m ORDER BY m.receivedAt DESC")
     List<String> findDistinctContentByOrderByReceivedAtDesc();
+    @Query("SELECT EXISTS (SELECT 1 FROM Message m WHERE m.content LIKE CONCAT('%', ?1, '%') AND m.receivedAt > ?2)")
+    boolean existsByProductNameAndReceivedAtAfter(String productName, LocalDateTime receivedAt);
 }

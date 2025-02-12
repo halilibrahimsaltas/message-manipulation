@@ -16,12 +16,11 @@ public class MessageService {
     private static final Logger log = LoggerFactory.getLogger(MessageService.class);
     private final MessageRepository messageRepository;
     private final ForwardService forwardService;
-    private final LinkConversionService linkConversionService;
 
-    public MessageService(MessageRepository messageRepository, ForwardService forwardService, LinkConversionService linkConversionService) {
+
+    public MessageService(MessageRepository messageRepository, ForwardService forwardService) {
         this.messageRepository = messageRepository;
         this.forwardService = forwardService;
-        this.linkConversionService = linkConversionService;
     }
 
     public List<Message> getAllMessages() {
@@ -32,29 +31,29 @@ public class MessageService {
         return messageRepository.findBySender(sender);
     }
 
+    public boolean isProductExists(String productName) {
+        try {
+            // Son 30 dakika içinde aynı ürün var mı kontrol et
+            LocalDateTime twoHoursAgo = LocalDateTime.now(ZoneId.of("Europe/Istanbul")).minusHours(2);
+            return messageRepository.existsByProductNameAndReceivedAtAfter(productName, twoHoursAgo);
+        } catch (Exception e) {
+            log.error("Ürün kontrolü sırasında hata: {}", e.getMessage());
+            return false;
+        }
+    }
+
     public void saveMessage(String content, String sender) {
         try {
-            // Son 1 dakika içinde aynı mesaj var mı kontrol et
-            LocalDateTime oneMinuteAgo = LocalDateTime.now(ZoneId.of("Europe/Istanbul")).minusMinutes(1);
-            boolean exists = messageRepository.existsByContentAndReceivedAtAfter(content, oneMinuteAgo);
-
-            if (!exists) {
-                Message message = new Message();
-                message.setContent(content);
-                message.setConvertedText(linkConversionService.convertLinks(content));
-                message.setSender(sender);
-                message.setReceivedAt(LocalDateTime.now(ZoneId.of("Europe/Istanbul")));
-                
-                // Mesajı kaydet
-                Message savedMessage = messageRepository.save(message);
-                
-                // Her mesajı Telegram'a gönder
-                forwardService.forwardMessage(sender, savedMessage.getConvertedText());
-                
-                log.debug("Yeni mesaj kaydedildi ve iletildi: {}", content);
-            } else {
-                log.debug("Tekrar eden mesaj atlandı: {}", content);
-            }
+            Message message = new Message();
+            message.setContent(content);
+            message.setConvertedText(content); // Link dönüşümünü kaldırdık
+            message.setSender(sender);
+            message.setReceivedAt(LocalDateTime.now(ZoneId.of("Europe/Istanbul")));
+            
+            Message savedMessage = messageRepository.save(message);
+            forwardService.forwardMessage(sender, savedMessage.getConvertedText());
+            
+            log.debug("Yeni ürün mesajı kaydedildi ve iletildi: {}", content);
         } catch (Exception e) {
             log.warn("Mesaj kaydetme sırasında hata: {}", e.getMessage());
         }

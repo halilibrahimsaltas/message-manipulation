@@ -40,7 +40,6 @@ public class ForwardService {
             Map<String, String> body = new HashMap<>();
             body.put("chat_id", formattedChatId);
             body.put("text", messageText);
-            body.put("parse_mode", "HTML"); // HTML formatını destekle
 
             restTemplate.postForObject(url, body, String.class);
             log.info("Telegram mesajı gönderildi: {}", messageText);
@@ -68,14 +67,8 @@ public class ForwardService {
      */
     public void forwardMessage(String sender, String content) {
         try {
-            // Mesaj formatını hazırla - HTML <br> yerine \n kullan
-            String formattedMessage = String.format("<b>%s</b>\n%s", 
-                sender, 
-                content.replace("<br>", "\n"));
-
-            // Formatlı mesajı tüm chat'lere gönder
-            sendToAllChats(formattedMessage);
-
+            // Direkt içeriği gönder, sender'ı ekleme
+            sendToAllChats(content);
         } catch (Exception e) {
             log.error("Mesaj yönlendirme hatası: ", e);
         }
