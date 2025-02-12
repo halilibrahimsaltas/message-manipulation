@@ -67,7 +67,7 @@ public class SeleniumService {
     /**
      * 10 saniyede bir yalnızca "Kanallar" sekmesindeki mesajları almak için çağrılan metot.
      */
-    @Scheduled(fixedDelay = 10000)
+    @Scheduled(fixedDelay = 5000)
     public void startListening() {
         try {
             if (!isInitialized || driver == null) {
@@ -357,6 +357,19 @@ public class SeleniumService {
                         .stream().findFirst()
                         .map(e -> e.getAttribute("src"))
                         .orElse(""));
+            }else if (url.contains("amzn")) {
+                // Amazon için selektörler
+                wait.until(ExpectedConditions.presenceOfElementLocated(By.id("productTitle")));
+                
+                info.setName(driver.findElement(By.cssSelector("#productTitle")).getText().trim());
+                info.setPrice(driver.findElements(By.cssSelector("span.a-price-whole"))
+                        .stream().findFirst()
+                        .map(WebElement::getText)
+                        .orElse("Fiyat bulunamadı"));
+                info.setImageUrl(driver.findElements(By.cssSelector("#landingImage, #imgBlkFront"))
+                        .stream().findFirst()
+                        .map(e -> e.getAttribute("src"))
+                        .orElse(""));
             }
             
             return info;
@@ -386,7 +399,7 @@ public class SeleniumService {
                     driver.get(link);
                     
                     // Sayfa yüklenme beklemesi
-                    Thread.sleep(3000);
+                    Thread.sleep(2000);
                     
                     // Ürün bilgilerini çek
                     ProductInfo info = scrapeProductInfo(link);

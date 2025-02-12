@@ -105,7 +105,8 @@ public class LinkConversionService {
         offerIdMap.put("hepsiburada", 6720);
         offerIdMap.put("ciceksepeti", 6721);
         offerIdMap.put("gittigidiyor", 6722);
-        offerIdMap.put("supplementler", 5528); // Example: Supplementler.com
+        offerIdMap.put("supplementler", 5528); 
+        offerIdMap.put("amzn", 6718);// Example: Supplementler.com
 
         for (Map.Entry<String, Integer> entry : offerIdMap.entrySet()) {
             if (url.toLowerCase().contains(entry.getKey())) {
